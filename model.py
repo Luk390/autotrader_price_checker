@@ -29,6 +29,8 @@ For myself
 """
 
 import pickle
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.preprocessing import PolynomialFeatures
 
 with open('train.pickle', 'rb') as f:
     X_train, y_train = pickle.load(f)
@@ -53,7 +55,46 @@ feature selection (computationally expensive).
 
 #do basic models to get a baseline score using L1 and L2 regularization
 
+ridge = Ridge().fit(X_train_scaled_encoded, y_train)
+print(f"Training Score: {ridge.score(X_train_scaled_encoded, y_train)}")
+print(f"Test Score: {ridge.score(X_test_scaled_encoded, y_test)}")
+
+lasso = Lasso().fit(X_train_scaled_encoded, y_train)
+print(f"Training Score: {lasso.score(X_train_scaled_encoded, y_train)}")
+print(f"Test Score: {lasso.score(X_test_scaled_encoded, y_test)}")
+
+"""
+Without any parameter tuning or polynomial expansions, we are already getting 
+and R2 of 95% and 94%.
+"""
 #do basic with polynomial 
+
+"""
+The below works but, there are so many features. I think make a pipeline and poly
+the numeric features, then add in categorical. See if that ups the score
+
+Ridge poly 
+Train score 0.9965684846094797
+Test score 0.9425541510033445
+Lasso poly
+Train score 0.9961384183740127
+Test score 0.9448654566082518
+
+Also Lasso didn't converge
+
+Pipeline!!! exciting!
+"""
+
+poly = PolynomialFeatures(degree=2)
+x_poly = poly.fit_transform(X_train_scaled_encoded)
+
+poly_ridge = Ridge().fit(x_poly, y_train)
+print(f"Train score {poly_ridge.score(x_poly, y_train)}")
+print(f"Test score {poly_ridge.score(poly.transform(X_test_scaled_encoded), y_test)}")
+
+poly_lasso = Lasso().fit(x_poly, y_train)
+print(f"Train score {poly_lasso.score(x_poly, y_train)}")
+print(f"Test score {poly_lasso.score(poly.transform(X_test_scaled_encoded), y_test)}")
 
 #when best model selected - create a pipeline which scales,encodes, cross-validates and gridseaches
 #Pipeline needed so you don't leak information during the cross validation
