@@ -5,32 +5,13 @@ Created on Tue Jul 14 08:10:52 2020
 @author: lukeb
 """
 
-"""
-* Do I need the column names?? - If not, then I can just do the encoding/scaling after a little EDA.
-
-Collinearity is an issue.
-    * Use either Recursive Feature Selection
-    * Or other options in the book
-
-For myself
-
-* Work out how to properly do onehotencoding. Is it possible to fall into the trap zedstatistics mentioned?
-
-* How do you unstandardise the coefficients?
-
-* which method to measure accuracy of model MAE?
-
-* Things to do
-    * Use stats models to do a simple linear regression and explain the output - # Consider going back to do this
-    * Check for variables with coefficients close to 0 and p value of the t-statistic greater than 0.05 - This indicates the interpretability of the coefficients
-    * Create pipeline - Need experience using it
-    * Smartly select features. Explain why the features have been selected
-
-"""
 
 import pickle
+import numpy as np
 from sklearn.linear_model import Ridge, Lasso
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
 
 with open('train.pickle', 'rb') as f:
     X_train, y_train = pickle.load(f)
@@ -51,9 +32,6 @@ more sophisticated feature selection will be carried out, such as recursive
 feature selection (computationally expensive).
 
 """
-#import scaled and encoded data from jupyter - Done
-
-#do basic models to get a baseline score using L1 and L2 regularization
 
 ridge = Ridge().fit(X_train_scaled_encoded, y_train)
 print(f"Training Score: {ridge.score(X_train_scaled_encoded, y_train)}")
@@ -65,29 +43,17 @@ print(f"Test Score: {lasso.score(X_test_scaled_encoded, y_test)}")
 
 """
 Without any parameter tuning or polynomial expansions, we are already getting 
-and R2 of 95% and 94%.
+and R2 of 92% for both models.
+
+Looking at the scatter graphs it was obvious that there are some polynomial
+relationships between the independent variables and the target variable. So a
+basic polynomial expansion will implemented.
 """
-#do basic with polynomial 
 
-"""
-The below works but, there are so many features. I think make a pipeline and poly
-the numeric features, then add in categorical. See if that ups the score
-
-Ridge poly 
-Train score 0.9965684846094797
-Test score 0.9425541510033445
-Lasso poly
-Train score 0.9961384183740127
-Test score 0.9448654566082518
-
-Also Lasso didn't converge
-
-Pipeline!!! exciting!
-"""
 
 poly = PolynomialFeatures(degree=2)
 x_poly = poly.fit_transform(X_train_scaled_encoded)
-
+x_test_poly = poly.transform(X_test_scaled_encoded)
 poly_ridge = Ridge().fit(x_poly, y_train)
 print(f"Train score {poly_ridge.score(x_poly, y_train)}")
 print(f"Test score {poly_ridge.score(poly.transform(X_test_scaled_encoded), y_test)}")
@@ -95,21 +61,55 @@ print(f"Test score {poly_ridge.score(poly.transform(X_test_scaled_encoded), y_te
 poly_lasso = Lasso().fit(x_poly, y_train)
 print(f"Train score {poly_lasso.score(x_poly, y_train)}")
 print(f"Test score {poly_lasso.score(poly.transform(X_test_scaled_encoded), y_test)}")
+print(f"Number of features used: {np.sum(poly_lasso.coef_ != 0)}")
 
-#when best model selected - create a pipeline which scales,encodes, cross-validates and gridseaches
-#Pipeline needed so you don't leak information during the cross validation
+"""
+This pushed the score up slightly to approx. 93% for both models. Surprisingly
+there isn't much evidence of overfitting despite the very high number of features.
+
+The next step will involve a gridsearch cross-validation to push the accuracy
+up as high as possible. Due to the high number of features the Lasso model will
+be chosen to try to slim down the high number of collinear variables.
+"""
+
+param_grid = {'lasso__alpha':[0.001, 0.01, 0.1, 1, 10, 100]}
+pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('lasso', Lasso(max_iter=10000))
+        ])
 
 
+grid = GridSearchCV(pipe, param_grid=param_grid, cv=5)
+grid.fit(x_poly, y_train)
+print(f"Best Score: {grid.best_score_}")
+print(f"Test set score: {grid.score(x_test_poly, y_test)}")
+print(f"Best Parameters: {grid.best_params_}")
 
 
+"""
 
+I think I need to create a new gridsearch. 
+1 - create x_poly with only x_train_numeric_features
+2 - encode that data
+3 - Scale the data - potentially between values 1 and 0???
+4 - train model
+5 - use grid.score that will do the same transformations on the test set.
 
+ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 2791966638.564788, tolerance: 362203124.1697053
+  positive)
+C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 713460439.3617058, tolerance: 371229675.8593116
+  positive)
+C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 623489921.3752999, tolerance: 329055837.96231246
+  positive)
+C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 2524248099.4247904, tolerance: 344050772.2479679
+  positive)
+C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 2699671243.9496603, tolerance: 356663968.8917436
+  positive)
+Best Score: 0.950836582824999
+Test set score: 0.9399934094581518
+Best Parameters: {'lasso__alpha': 100}
 
-
-
-
-
-
+"""
 
 
 
