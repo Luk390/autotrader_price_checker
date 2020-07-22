@@ -9,9 +9,10 @@ Created on Tue Jul 14 08:10:52 2020
 import pickle
 import numpy as np
 from sklearn.linear_model import Ridge, Lasso
-from sklearn.preprocessing import PolynomialFeatures, StandardScaler
-from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler, OneHotEncoder
+from sklearn.pipeline import Pipeline, make_pipeline
 from sklearn.model_selection import GridSearchCV
+from sklearn.compose import ColumnTransformer, make_column_transformer
 
 with open('train.pickle', 'rb') as f:
     X_train, y_train = pickle.load(f)
@@ -67,53 +68,49 @@ print(f"Number of features used: {np.sum(poly_lasso.coef_ != 0)}")
 This pushed the score up slightly to approx. 93% for both models. Surprisingly
 there isn't much evidence of overfitting despite the very high number of features.
 
-The next step will involve a gridsearch cross-validation to push the accuracy
-up as high as possible. Due to the high number of features the Lasso model will
-be chosen to try to slim down the high number of collinear variables.
-"""
-
-param_grid = {'lasso__alpha':[0.001, 0.01, 0.1, 1, 10, 100]}
-pipe = Pipeline([
-        ('scaler', StandardScaler()),
-        ('lasso', Lasso(max_iter=10000))
-        ])
-
-
-grid = GridSearchCV(pipe, param_grid=param_grid, cv=5)
-grid.fit(x_poly, y_train)
-print(f"Best Score: {grid.best_score_}")
-print(f"Test set score: {grid.score(x_test_poly, y_test)}")
-print(f"Best Parameters: {grid.best_params_}")
-
+Now we have an idea of which model to use and the preprocessing steps that need
+to be conducted. The next step will involve creating a pipeline of preprocessing
+and a gridsearch for parameter selection.
 
 """
 
-I think I need to create a new gridsearch. 
-1 - create x_poly with only x_train_numeric_features
-2 - encode that data
-3 - Scale the data - potentially between values 1 and 0???
-4 - train model
-5 - use grid.score that will do the same transformations on the test set.
+preprocess = make_column_transformer(
+    (StandardScaler(), ['co2Emissions', 'mileage', 'engine_size']),
+    (PolynomialFeatures(), ['co2Emissions', 'mileage', 'engine_size']),
+    (OneHotEncoder(sparse=False, handle_unknown='ignore'), ['body_type', 
+     'condition', 'doors', 'isTradeSeller', 'make', 'manufactured_year', 
+     'model', 'seats', 'transmission', 'location'])
+    )
 
-ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 2791966638.564788, tolerance: 362203124.1697053
-  positive)
-C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 713460439.3617058, tolerance: 371229675.8593116
-  positive)
-C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 623489921.3752999, tolerance: 329055837.96231246
-  positive)
-C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 2524248099.4247904, tolerance: 344050772.2479679
-  positive)
-C:\Users\lukeb\Anaconda3\lib\site-packages\sklearn\linear_model\coordinate_descent.py:475: ConvergenceWarning: Objective did not converge. You might want to increase the number of iterations. Duality gap: 2699671243.9496603, tolerance: 356663968.8917436
-  positive)
-Best Score: 0.950836582824999
-Test set score: 0.9399934094581518
-Best Parameters: {'lasso__alpha': 100}
+
+param_grid = {
+    'lasso__alpha': [0.001, 0.01, 0.1, 1, 10, 100],
+    'columntransformer__polynomialfeatures__degree': [2,3]
+    }
+    
+    
+pipe2 = make_pipeline(
+        preprocess,
+        Lasso(max_iter=10000)
+        )
+
+grid = GridSearchCV(pipe2, param_grid=param_grid, cv=5, n_jobs=-1)
+grid.fit(X_train, y_train)
+print(grid.score(X_train, y_train))
+print(grid.score(X_test, y_test))
+print(grid.best_params_)
+
+"""
+The model only produced an MAE of 92.7% not much of an improvement on the above
+but the gridsearch provides more confidence in how reliable the model will be
+on unseen data.
+
+"""
+
+pickl = {'model': grid.best_estimator_}
+pickle.dump(pickl, open('model_file' + '.p', 'wb'))
 
 """
 
 
-
-
-
-
-
+"""
