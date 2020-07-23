@@ -99,6 +99,7 @@ grid.fit(X_train, y_train)
 print(grid.score(X_train, y_train))
 print(grid.score(X_test, y_test))
 print(grid.best_params_)
+#print(grid.mean_absolute_error)
 
 """
 The model only produced an MAE of 92.7% not much of an improvement on the above
@@ -108,7 +109,17 @@ on unseen data.
 """
 
 pickl = {'model': grid.best_estimator_}
-pickle.dump(pickl, open('model_file' + '.p', 'wb'))
+pickle.dump(pickl, open('models/model_file' + '.p', 'wb'))
+
+
+file_name = "models/model_file.p"
+with open(file_name, 'rb') as pickled:
+    data = pickle.load(pickled)
+    model = data['model']
+    
+model.predict(X_test.iloc[0:1,:])
+
+
 
 """
 
