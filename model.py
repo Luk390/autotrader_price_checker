@@ -65,8 +65,7 @@ print(f"Test score {poly_lasso.score(poly.transform(X_test_scaled_encoded), y_te
 print(f"Number of features used: {np.sum(poly_lasso.coef_ != 0)}")
 
 """
-This pushed the score up slightly to approx. 93% for both models. Surprisingly
-there isn't much evidence of overfitting despite the very high number of features.
+This pushed the score up slightly to approx. 93% for both models.
 
 Now we have an idea of which model to use and the preprocessing steps that need
 to be conducted. The next step will involve creating a pipeline of preprocessing
@@ -109,17 +108,17 @@ on unseen data.
 """
 
 pickl = {'model': grid.best_estimator_}
-pickle.dump(pickl, open('models/model_file' + '.p', 'wb'))
+pickle.dump(pickl, open('FlaskAPI/models/model_file' + '.p', 'wb'))
 
 
-file_name = "models/model_file.p"
-with open(file_name, 'rb') as pickled:
-    data = pickle.load(pickled)
-    model = data['model']
+
+#pickling a single line of data to test API
+data_in = X_test.iloc[0:1,:]
+with open('FlaskAPI/data.pickle', 'wb') as f:
+    pickle.dump(data_in, f)
+
+
     
-model.predict(X_test.iloc[0:1,:])
-
-
 
 """
 
